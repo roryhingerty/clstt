@@ -1,35 +1,63 @@
 import { NavigationContainer } from '@react-navigation/native'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { StyleSheet } from 'react-native'
-import { supabase } from './lib/supabase'
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import { Text } from 'react-native'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import DiscoverScreen from './screens/DiscoverScreen'
 import ClosetScreen from './screens/ClosetScreen'
-console.log('Supabase connected:', !!supabase)
+import ItemDetailScreen from './screens/ItemDetailScreen'
 
 const Tab = createBottomTabNavigator()
+const ClosetStack = createNativeStackNavigator()
 
-export default function App() {
+function ClosetNavigator() {
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          tabBarActiveTintColor: '#1D9E75',
-          tabBarInactiveTintColor: '#aaa',
-          tabBarStyle: {
-            borderTopWidth: 0.5,
-            borderTopColor: '#e0ddd6',
-            backgroundColor: '#fff',
-          },
-          headerShown: false,
-        }}
-      >
-        <Tab.Screen name="Discover" component={DiscoverScreen} />
-        <Tab.Screen name="Closet" component={ClosetScreen} />
-      </Tab.Navigator>
-    </NavigationContainer>
+    <ClosetStack.Navigator screenOptions={{ headerShown: false }}>
+      <ClosetStack.Screen name="ClosetHome" component={ClosetScreen} />
+      <ClosetStack.Screen name="ItemDetail" component={ItemDetailScreen} />
+    </ClosetStack.Navigator>
   )
 }
 
-const styles = StyleSheet.create({
-  // kept for potential future app-level styles
-})
+export default function App() {
+  return (
+    <SafeAreaProvider>
+    <NavigationContainer>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: '#fff',
+            borderTopColor: '#e0ddd6',
+            borderTopWidth: 1,
+          },
+          tabBarActiveTintColor: '#1D9E75',
+          tabBarInactiveTintColor: '#999',
+          tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        }}
+      >
+        <Tab.Screen
+          name="Discover"
+          component={DiscoverScreen}
+          options={{
+            tabBarLabel: 'Discover',
+            tabBarIcon: ({ color }) => (
+              <Text style={{ fontSize: 18, color }}>✦</Text>
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Closet"
+          component={ClosetNavigator}
+          options={{
+            tabBarLabel: 'Closet',
+            tabBarIcon: ({ color }) => (
+              <Text style={{ fontSize: 18, color }}>♡</Text>
+            ),
+          }}
+        />
+      </Tab.Navigator>
+    </NavigationContainer>
+    </SafeAreaProvider>
+  )
+}

@@ -1,36 +1,30 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
   Image,
-  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../lib/supabase'
 
-const BG = '#f8f7f4'
 const GREEN = '#1D9E75'
+const BG = '#f8f7f4'
 const BORDER = '#e0ddd6'
-const CARD_BG = '#ffffff'
 
-const TABS = [
-  { key: 'Tops', label: 'Tops' },
-  { key: 'Bottoms', label: 'Bottoms' },
-  { key: 'Outerwear', label: 'Outerwear' },
-  { key: 'Footwear', label: 'Footwear' },
+const CATEGORIES = [
+  'All',
+  'Tops',
+  'Bottoms',
+  'Dresses',
+  'Outerwear',
+  'Shoes',
+  'Accessories',
 ]
-
-function productImageUri(product) {
-  return (
-    product?.image_url ??
-    product?.image ??
-    product?.photo_url ??
-    product?.thumbnail_url ??
-    null
-  )
-}
 
 function formatPrice(price) {
   if (price == null || price === '') return ''
@@ -40,141 +34,143 @@ function formatPrice(price) {
   return String(price)
 }
 
-function productCategory(product) {
-  const raw =
-    product?.category ??
-    product?.product_category ??
-    product?.type ??
-    product?.product_type ??
-    product?.category_name ??
-    null
-  return raw ? String(raw).trim() : ''
-}
-
-export default function ClosetScreen() {
-  const [activeTab, setActiveTab] = useState(TABS[0].key)
-  const [loading, setLoading] = useState(true)
+export default function ClosetScreen({ navigation }) {
+  const insets = useSafeAreaInsets()
   const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [activeCategory, setActiveCategory] = useState('All')
 
   useEffect(() => {
-    let cancelled = false
-
     async function fetchCloset() {
       setLoading(true)
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession()
-        const userId = session?.user?.id
-
-        if (!userId) {
-          if (!cancelled) setItems([])
+        if (!session) {
+          setLoading(false)
           return
         }
-
         const { data, error } = await supabase
           .from('closet_items')
           .select('*, products(*)')
-          .eq('user_id', userId)
-
+          .eq('user_id', session.user.id)
         if (error) throw error
-
-        const normalized = (data ?? [])
-          .map((row) => ({
-            closetItem: row,
-            product: row?.products ?? null,
-          }))
-          .filter((x) => x.product)
-
-        if (!cancelled) setItems(normalized)
-      } catch (e) {
-        if (!cancelled) setItems([])
+        setItems(data ?? [])
+      } catch {
+        setItems([])
       } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
     }
-
     fetchCloset()
-    return () => {
-      cancelled = true
-    }
   }, [])
 
-  const filtered = useMemo(() => {
-    const tab = String(activeTab).toLowerCase()
-    return items.filter(({ product }) => {
-      const cat = productCategory(product).toLowerCase()
-      return cat === tab
-    })
-  }, [items, activeTab])
+  const filtered =
+    activeCategory === 'All'
+      ? items
+      : items.filter(
+          (item) =>
+            item.products?.category?.toLowerCase() ===
+            activeCategory.toLowerCase()
+        )
 
-  const renderItem = ({ item }) => {
-    const product = item.product
-    const uri = productImageUri(product)
-    return (
-      <View style={styles.card}>
-        <View style={styles.imageWrap}>
-          {uri ? (
-            <Image source={{ uri }} style={styles.image} resizeMode="cover" />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Text style={styles.placeholderText}>No image</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.cardMeta}>
-          {product.brand ? (
-            <Text style={styles.brand} numberOfLines={1}>
-              {product.brand}
+  const renderItem = useCallback(
+    ({ item }) => {
+      const product = item.products
+      if (!product) return null
+      const uri = product.image_url ?? product.image ?? null
+      return (
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => navigation.navigate('ItemDetail', { product })}
+          activeOpacity={0.85}
+        >
+          <View style={styles.imageWrap}>
+            {uri ? (
+              <Image
+                source={{ uri }}
+                style={styles.image}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Text style={styles.placeholderText}>No image</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.cardMeta}>
+            {product.brand ? (
+              <Text style={styles.brand} numberOfLines={1}>
+                {product.brand}
+              </Text>
+            ) : null}
+            <Text style={styles.name} numberOfLines={2}>
+              {product.name ?? 'Untitled'}
             </Text>
-          ) : null}
-          <Text style={styles.name} numberOfLines={2}>
-            {product.name ?? 'Untitled'}
-          </Text>
-          <Text style={styles.price}>{formatPrice(product.price)}</Text>
-        </View>
+            <Text style={styles.price}>{formatPrice(product.price)}</Text>
+          </View>
+        </TouchableOpacity>
+      )
+    },
+    [navigation]
+  )
+
+  if (loading) {
+    return (
+      <View style={[styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={GREEN} />
       </View>
     )
   }
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.tabsRow}>
-        {TABS.map((tab) => {
-          const active = tab.key === activeTab
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
-              style={styles.tabBtn}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-            >
-              <Text style={[styles.tabText, active ? styles.tabTextActive : styles.tabTextInactive]}>
-                {tab.label}
-              </Text>
-              <View style={[styles.tabUnderline, active ? styles.tabUnderlineActive : null]} />
-            </Pressable>
-          )
-        })}
-      </View>
+    <View style={[styles.screen, { paddingTop: insets.top + 16 }]}>
+      <Text style={styles.title}>My Closet</Text>
 
-      {loading ? (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabs}
+        style={styles.tabsRow}
+      >
+        {CATEGORIES.map((cat) => (
+          <TouchableOpacity
+            key={cat}
+            onPress={() => setActiveCategory(cat)}
+            style={[styles.tab, activeCategory === cat && styles.activeTab]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeCategory === cat && styles.activeTabText,
+              ]}
+            >
+              {cat}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {filtered.length === 0 ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={GREEN} />
-        </View>
-      ) : filtered.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyText}>No {activeTab} saved yet</Text>
+          <Text style={styles.emptyTitle}>
+            {activeCategory === 'All'
+              ? 'Your closet is empty'
+              : `No ${activeCategory} yet`}
+          </Text>
+          <Text style={styles.emptySubtitle}>
+            Swipe right on items you love
+          </Text>
         </View>
       ) : (
         <FlatList
           data={filtered}
-          keyExtractor={(x) => String(x.closetItem?.id ?? x.product?.id)}
           renderItem={renderItem}
+          keyExtractor={(item) => String(item.id)}
           numColumns={2}
-          contentContainerStyle={styles.listContent}
-          columnWrapperStyle={styles.columnWrap}
+          columnWrapperStyle={styles.row}
+          contentContainerStyle={styles.grid}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -187,67 +183,67 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BG,
   },
-  tabsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    gap: 10,
-  },
-  tabBtn: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  tabTextActive: {
-    color: '#222',
-  },
-  tabTextInactive: {
-    color: '#888',
-  },
-  tabUnderline: {
-    marginTop: 8,
-    height: 2,
-    width: '100%',
-    backgroundColor: 'transparent',
-  },
-  tabUnderlineActive: {
-    backgroundColor: GREEN,
-  },
   centered: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    backgroundColor: BG,
   },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#222',
-    textAlign: 'center',
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
   },
-  listContent: {
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 18,
+  tabsRow: {
+    flexGrow: 0,
   },
-  columnWrap: {
+  tabs: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  tab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: '#fff',
+  },
+  activeTab: {
+    backgroundColor: GREEN,
+    borderColor: GREEN,
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#555',
+    fontWeight: '500',
+  },
+  activeTabText: {
+    color: '#fff',
+  },
+  grid: {
+    paddingHorizontal: 12,
+    paddingBottom: 20,
+  },
+  row: {
     gap: 12,
+    marginBottom: 12,
   },
   card: {
     flex: 1,
-    height: 260,
-    borderRadius: 16,
-    backgroundColor: CARD_BG,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: BORDER,
-    overflow: 'hidden',
   },
   imageWrap: {
-    flex: 2,
+    width: '100%',
+    aspectRatio: 3 / 4,
     backgroundColor: '#f0eeea',
   },
   image: {
@@ -261,33 +257,40 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     color: '#888',
-    fontSize: 15,
+    fontSize: 13,
   },
   cardMeta: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: BORDER,
+    padding: 10,
   },
   brand: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
     color: GREEN,
+    fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 4,
+    letterSpacing: 0.5,
+    marginBottom: 3,
   },
   name: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
     color: '#1a1a1a',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   price: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '500',
-    color: '#333',
+    color: '#555',
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#222',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 })
-

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   Image,
   StyleSheet,
   Text,
@@ -74,11 +73,12 @@ function formatPrice(price) {
   return String(price)
 }
 
-export default function DiscoverScreen() {
+export default function DiscoverScreen({ navigation }) {
   const swiperRef = useRef(null)
   const [userId, setUserId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [products, setProducts] = useState([])
+  const [allSwiped, setAllSwiped] = useState(false)
 
   useEffect(() => {
     async function fetchProducts() {
@@ -107,41 +107,26 @@ export default function DiscoverScreen() {
         setUserId(uid)
         fetchProducts()
       } catch (e) {
-        Alert.alert('Auth Error', e.message)
+        // auth errors are non-fatal; swiping will still work
       }
     }
     initAuth()
   }, [])
 
   const recordSwipe = useCallback(async (product, liked) => {
-    if (!userId || !product?.id) {
-      console.log('recordSwipe blocked - userId:', userId, 'productId:', product?.id)
-      return
-    }
+    if (!userId || !product?.id) return
 
-    console.log('recording swipe - userId:', userId, 'productId:', product.id, 'liked:', liked)
-
-    const { data: swipeData, error: swipeError } = await supabase
-      .from('swipe_events')
-      .insert({
-        user_id: userId,
-        product_id: product.id,
-        direction: liked ? 'like' : 'dislike',
-      })
-      .select()
-
-    console.log('swipe_events result - data:', JSON.stringify(swipeData), 'error:', JSON.stringify(swipeError))
+    await supabase.from('swipe_events').insert({
+      user_id: userId,
+      product_id: product.id,
+      direction: liked ? 'like' : 'dislike',
+    })
 
     if (liked) {
-      const { data: closetData, error: closetError } = await supabase
-        .from('closet_items')
-        .insert({
-          user_id: userId,
-          product_id: product.id,
-        })
-        .select()
-
-      console.log('closet_items result - data:', JSON.stringify(closetData), 'error:', JSON.stringify(closetError))
+      await supabase.from('closet_items').insert({
+        user_id: userId,
+        product_id: product.id,
+      })
     }
   }, [userId])
 
@@ -160,6 +145,10 @@ export default function DiscoverScreen() {
     },
     [products, recordSwipe]
   )
+
+  const onSwipedAll = useCallback(() => {
+    setAllSwiped(true)
+  }, [])
 
   const renderCard = useCallback((product) => {
     if (!product) {
@@ -215,6 +204,24 @@ export default function DiscoverScreen() {
     )
   }
 
+  if (allSwiped) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.emptyTitle}>You're all caught up</Text>
+        <Text style={styles.emptySubtitle}>
+          Check back soon for new arrivals
+        </Text>
+        <TouchableOpacity
+          style={styles.viewClosetBtn}
+          onPress={() => navigation.navigate('Closet')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.viewClosetText}>View Closet</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
   return (
     <View style={styles.screen}>
       <View style={styles.swiperWrap}>
@@ -224,6 +231,7 @@ export default function DiscoverScreen() {
           renderCard={renderCard}
           onSwipedLeft={onSwipedLeft}
           onSwipedRight={onSwipedRight}
+          onSwipedAll={onSwipedAll}
           cardIndex={0}
           backgroundColor="transparent"
           stackSize={3}
@@ -290,6 +298,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#666',
     textAlign: 'center',
+  },
+  viewClosetBtn: {
+    marginTop: 24,
+    backgroundColor: GREEN,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 28,
+  },
+  viewClosetText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   card: {
     flex: 1,
