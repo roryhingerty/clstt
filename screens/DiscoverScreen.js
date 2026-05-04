@@ -114,20 +114,34 @@ export default function DiscoverScreen() {
   }, [])
 
   const recordSwipe = useCallback(async (product, liked) => {
-    if (!userId || !product?.id) return
+    if (!userId || !product?.id) {
+      console.log('recordSwipe blocked - userId:', userId, 'productId:', product?.id)
+      return
+    }
 
-    const { error: swipeError } = await supabase.from('swipe_events').insert({
-      user_id: userId,
-      product_id: product.id,
-      direction: liked ? 'like' : 'dislike',
-    })
+    console.log('recording swipe - userId:', userId, 'productId:', product.id, 'liked:', liked)
 
-    if (liked) {
-      const { error } = await supabase.from('closet_items').insert({
+    const { data: swipeData, error: swipeError } = await supabase
+      .from('swipe_events')
+      .insert({
         user_id: userId,
         product_id: product.id,
+        direction: liked ? 'like' : 'dislike',
       })
-      console.log('closet insert result:', error ?? 'ok')
+      .select()
+
+    console.log('swipe_events result - data:', JSON.stringify(swipeData), 'error:', JSON.stringify(swipeError))
+
+    if (liked) {
+      const { data: closetData, error: closetError } = await supabase
+        .from('closet_items')
+        .insert({
+          user_id: userId,
+          product_id: product.id,
+        })
+        .select()
+
+      console.log('closet_items result - data:', JSON.stringify(closetData), 'error:', JSON.stringify(closetError))
     }
   }, [userId])
 
