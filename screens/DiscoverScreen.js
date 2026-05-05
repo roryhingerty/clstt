@@ -75,7 +75,9 @@ function formatPrice(price) {
 
 export default function DiscoverScreen({ navigation }) {
   const swiperRef = useRef(null)
+  const userIdRef = useRef(null)
   const [userId, setUserId] = useState(null)
+  const [authStatus, setAuthStatus] = useState('starting...')
   const [loading, setLoading] = useState(true)
   const [products, setProducts] = useState([])
   const [allSwiped, setAllSwiped] = useState(false)
@@ -96,37 +98,58 @@ export default function DiscoverScreen({ navigation }) {
 
     async function initAuth() {
       try {
-        let { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        setAuthStatus('signing out...')
+        await supabase.auth.signOut()
 
-        if (!session) {
-          const { data, error: anonError } = await supabase.auth.signInAnonymously()
-          session = data?.session
+        setAuthStatus('signing in...')
+        const { data, error } = await supabase.auth.signInAnonymously()
+
+        if (error) {
+          setAuthStatus('error: ' + error.message)
+        } else {
+          setAuthStatus('ok: ' + (data.user?.id?.slice(0, 8) ?? 'no id'))
+          setUserId(data.user?.id ?? null)
+          userIdRef.current = data.user?.id ?? null
         }
-
-        const uid = session?.user?.id
-        setUserId(uid)
         fetchProducts()
       } catch (e) {
-        // auth errors are non-fatal; swiping will still work
+        setAuthStatus('exception: ' + e.message)
+        fetchProducts()
       }
     }
     initAuth()
   }, [])
 
   const recordSwipe = useCallback(async (product, liked) => {
-    if (!userId || !product?.id) return
+    const uid = userIdRef.current || userId
+    console.log('recordSwipe called - uid:', uid, 'product:', product?.id, 'liked:', liked)
+    
+    if (!uid || !product?.id) {
+      console.log('recordSwipe blocked - uid:', uid, 'productId:', product?.id)
+      return
+    }
 
-    await supabase.from('swipe_events').insert({
-      user_id: userId,
-      product_id: product.id,
-      direction: liked ? 'like' : 'dislike',
-    })
+    const { data: swipeData, error: swipeError } = await supabase
+      .from('swipe_events')
+      .insert({
+        user_id: uid,
+        product_id: product.id,
+        direction: liked ? 'like' : 'dislike',
+      })
+      .select()
+
+    console.log('swipe_events result:', JSON.stringify(swipeError ?? 'ok'))
 
     if (liked) {
-      await supabase.from('closet_items').insert({
-        user_id: userId,
-        product_id: product.id,
-      })
+      const { data: closetData, error: closetError } = await supabase
+        .from('closet_items')
+        .insert({
+          user_id: uid,
+          product_id: product.id,
+        })
+        .select()
+
+      console.log('closet_items result:', JSON.stringify(closetError ?? 'ok'))
     }
   }, [userId])
 
@@ -224,6 +247,19 @@ export default function DiscoverScreen({ navigation }) {
 
   return (
     <View style={styles.screen}>
+      <Text>Clstt</Text>
+      <Text
+        style={{
+          fontSize: 12,
+          color: 'red',
+          textAlign: 'center',
+          marginBottom: 4,
+          marginTop: 60,
+          fontWeight: 'bold',
+        }}
+      >
+        auth: {authStatus}
+      </Text>
       <View style={styles.swiperWrap}>
         <Swiper
           ref={swiperRef}
