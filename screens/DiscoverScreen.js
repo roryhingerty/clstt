@@ -95,12 +95,27 @@ export default function DiscoverScreen({ navigation }) {
     }
 
     async function initAuth() {
-      await supabase.auth.signOut()
-      const { data, error } = await supabase.auth.signInAnonymously()
-      if (!error) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+
+        if (session?.user?.id) {
+          setUserId(session.user.id)
+          fetchProducts()
+          return
+        }
+
+        const { data, error } = await supabase.auth.signInAnonymously()
+
+        if (error) {
+          fetchProducts()
+          return
+        }
+
         setUserId(data.user.id)
+        fetchProducts()
+      } catch (e) {
+        fetchProducts()
       }
-      fetchProducts()
     }
     initAuth()
   }, [])
