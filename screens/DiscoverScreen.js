@@ -106,7 +106,7 @@ export default function DiscoverScreen({ navigation }) {
 
         const { data, error } = await supabase.auth.signInAnonymously()
 
-        if (error) {
+if (error) {
           fetchProducts()
           return
         }

@@ -97,7 +97,7 @@ export default function ClosetScreen({ navigation }) {
             activeCategory.toLowerCase()
         )
 
-  const showAccountBanner = user?.email == null && items.length > 0 && !bannerDismissed
+  const showAccountBanner = user != null && !user.email && !bannerDismissed
 
   const openSignup = useCallback(() => {
     setSignupError('')
