@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../lib/supabase'
 
@@ -41,32 +42,36 @@ export default function ClosetScreen({ navigation }) {
   const [activeCategory, setActiveCategory] = useState('All')
   const [user, setUser] = useState(null)
 
-  useEffect(() => {
-    async function fetchCloset() {
-      setLoading(true)
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-        setUser(session?.user ?? null)
-        if (!session) {
-          setLoading(false)
-          return
-        }
-        const { data, error } = await supabase
-          .from('closet_items')
-          .select('*, products(*)')
-          .eq('user_id', session.user.id)
-        if (error) throw error
-        setItems(data ?? [])
-      } catch {
-        setItems([])
-      } finally {
+  async function fetchCloset() {
+    setLoading(true)
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session?.user?.id) {
         setLoading(false)
+        return
       }
+      setUser(session.user)
+      const { data, error } = await supabase
+        .from('closet_items')
+        .select('*, products(*)')
+        .eq('user_id', session.user.id)
+      if (error) throw error
+      setItems(data ?? [])
+    } catch (e) {
+      console.log('fetchCloset error:', e.message)
+      setItems([])
+    } finally {
+      setLoading(false)
     }
-    fetchCloset()
-  }, [])
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchCloset()
+    }, [])
+  )
 
   const filtered =
     activeCategory === 'All'
