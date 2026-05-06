@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { Text } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import OutfitScreen from './screens/OutfitScreen'
 import DiscoverScreen from './screens/DiscoverScreen'
 import ClosetScreen from './screens/ClosetScreen'
 import ItemDetailScreen from './screens/ItemDetailScreen'
@@ -36,6 +37,16 @@ export default function App() {
             tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
           }}
         >
+          <Tab.Screen
+            name="Outfit"
+            component={OutfitScreen}
+            options={{
+              tabBarLabel: 'Outfit',
+              tabBarIcon: ({ color }) => (
+                <Text style={{ fontSize: 18, color }}>✂</Text>
+              ),
+            }}
+          />
           <Tab.Screen
             name="Discover"
             component={DiscoverScreen}
