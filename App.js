@@ -22,42 +22,42 @@ function ClosetNavigator() {
 export default function App() {
   return (
     <SafeAreaProvider>
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: {
-            backgroundColor: '#fff',
-            borderTopColor: '#e0ddd6',
-            borderTopWidth: 1,
-          },
-          tabBarActiveTintColor: '#1D9E75',
-          tabBarInactiveTintColor: '#999',
-          tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
-        }}
-      >
-        <Tab.Screen
-          name="Discover"
-          component={DiscoverScreen}
-          options={{
-            tabBarLabel: 'Discover',
-            tabBarIcon: ({ color }) => (
-              <Text style={{ fontSize: 18, color }}>✦</Text>
-            ),
+      <NavigationContainer>
+        <Tab.Navigator
+          screenOptions={{
+            headerShown: false,
+            tabBarStyle: {
+              backgroundColor: '#fff',
+              borderTopColor: '#e0ddd6',
+              borderTopWidth: 1,
+            },
+            tabBarActiveTintColor: '#1D9E75',
+            tabBarInactiveTintColor: '#999',
+            tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
           }}
-        />
-        <Tab.Screen
-          name="Closet"
-          component={ClosetNavigator}
-          options={{
-            tabBarLabel: 'Closet',
-            tabBarIcon: ({ color }) => (
-              <Text style={{ fontSize: 18, color }}>♡</Text>
-            ),
-          }}
-        />
-      </Tab.Navigator>
-    </NavigationContainer>
+        >
+          <Tab.Screen
+            name="Discover"
+            component={DiscoverScreen}
+            options={{
+              tabBarLabel: 'Discover',
+              tabBarIcon: ({ color }) => (
+                <Text style={{ fontSize: 18, color }}>✦</Text>
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Closet"
+            component={ClosetNavigator}
+            options={{
+              tabBarLabel: 'Closet',
+              tabBarIcon: ({ color }) => (
+                <Text style={{ fontSize: 18, color }}>♡</Text>
+              ),
+            }}
+          />
+        </Tab.Navigator>
+      </NavigationContainer>
     </SafeAreaProvider>
   )
 }

@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Alert,
   ActivityIndicator,
   FlatList,
   Image,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -44,12 +41,6 @@ export default function ClosetScreen({ navigation }) {
   const [activeCategory, setActiveCategory] = useState('All')
   const [user, setUser] = useState(null)
 
-  const [bannerDismissed, setBannerDismissed] = useState(false)
-  const [signupOpen, setSignupOpen] = useState(false)
-  const [signupEmail, setSignupEmail] = useState('')
-  const [signupPassword, setSignupPassword] = useState('')
-  const [signupError, setSignupError] = useState('')
-
   useEffect(() => {
     async function fetchCloset() {
       setLoading(true)
@@ -77,9 +68,6 @@ export default function ClosetScreen({ navigation }) {
     fetchCloset()
   }, [])
 
-  console.log('Banner debug - items:', items.length, 'dismissed:', bannerDismissed)
-  const shouldShowAccountBanner = items.length > 0 && !bannerDismissed
-
   const filtered =
     activeCategory === 'All'
       ? items
@@ -88,23 +76,6 @@ export default function ClosetScreen({ navigation }) {
             item.products?.category?.toLowerCase() ===
             activeCategory.toLowerCase()
         )
-
-  const submitCreateAccount = useCallback(async () => {
-    setSignupError('')
-    try {
-      const { error } = await supabase.auth.updateUser({
-        email: signupEmail.trim(),
-        password: signupPassword,
-      })
-      if (error) throw error
-      Alert.alert('Account created!')
-      setSignupOpen(false)
-      setSignupEmail('')
-      setSignupPassword('')
-    } catch (e) {
-      setSignupError(e?.message ?? 'Something went wrong')
-    }
-  }, [signupEmail, signupPassword])
 
   const renderItem = useCallback(
     ({ item }) => {
@@ -159,28 +130,6 @@ export default function ClosetScreen({ navigation }) {
     <View style={[styles.screen, { paddingTop: insets.top + 16 }]}>
       <Text style={styles.title}>My Closet</Text>
 
-      {shouldShowAccountBanner ? (
-        <View style={styles.accountBanner}>
-          <Text style={styles.accountBannerText}>
-            Save your closet — create a free account
-          </Text>
-          <TouchableOpacity
-            style={styles.accountBannerButton}
-            onPress={() => setSignupOpen(true)}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.accountBannerButtonText}>Sign Up</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.accountBannerClose}
-            onPress={() => setBannerDismissed(true)}
-            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-          >
-            <Text style={styles.accountBannerCloseText}>✕</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
-
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -227,57 +176,6 @@ export default function ClosetScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
         />
       )}
-
-      <Modal
-        visible={signupOpen}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setSignupOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <TouchableOpacity
-              style={styles.modalClose}
-              onPress={() => setSignupOpen(false)}
-              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-            >
-              <Text style={styles.modalCloseText}>✕</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.modalTitle}>Create Account</Text>
-
-            <TextInput
-              value={signupEmail}
-              onChangeText={setSignupEmail}
-              placeholder="Email"
-              placeholderTextColor="#888"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              style={styles.modalInput}
-            />
-            <TextInput
-              value={signupPassword}
-              onChangeText={setSignupPassword}
-              placeholder="Password"
-              placeholderTextColor="#888"
-              secureTextEntry
-              style={styles.modalInput}
-            />
-
-            {signupError ? (
-              <Text style={styles.modalError}>{signupError}</Text>
-            ) : null}
-
-            <TouchableOpacity
-              style={styles.modalSubmit}
-              onPress={submitCreateAccount}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.modalSubmitText}>Create Account</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   )
 }
@@ -300,44 +198,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 12,
-  },
-  accountBanner: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: GREEN,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  accountBannerText: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  accountBannerButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: '#fff',
-  },
-  accountBannerButtonText: {
-    color: GREEN,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  accountBannerClose: {
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-  },
-  accountBannerCloseText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 18,
   },
   tabsRow: {
     flexGrow: 0,
@@ -434,69 +294,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 18,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 420,
-    borderRadius: 14,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: BORDER,
-    padding: 16,
-  },
-  modalClose: {
-    position: 'absolute',
-    right: 12,
-    top: 12,
-    padding: 6,
-  },
-  modalCloseText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#222',
-    lineHeight: 18,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 12,
-    paddingRight: 24,
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#1a1a1a',
-    marginBottom: 10,
-  },
-  modalError: {
-    color: '#b42318',
-    fontSize: 13,
-    marginTop: 2,
-    marginBottom: 10,
-  },
-  modalSubmit: {
-    marginTop: 2,
-    backgroundColor: GREEN,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  modalSubmitText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
   },
 })
