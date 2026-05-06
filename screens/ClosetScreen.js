@@ -1,12 +1,15 @@
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  TextInput,
   View,
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
@@ -41,6 +44,19 @@ export default function ClosetScreen({ navigation }) {
   const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState('All')
   const [user, setUser] = useState(null)
+  const [bannerDismissed, setBannerDismissed] = useState(false)
+
+  const [signupOpen, setSignupOpen] = useState(false)
+  const [signupEmail, setSignupEmail] = useState('')
+  const [signupPassword, setSignupPassword] = useState('')
+  const [signupError, setSignupError] = useState('')
+  const [signupSubmitting, setSignupSubmitting] = useState(false)
+
+  const [loginOpen, setLoginOpen] = useState(false)
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginError, setLoginError] = useState('')
+  const [loginSubmitting, setLoginSubmitting] = useState(false)
 
   async function fetchCloset() {
     setLoading(true)
@@ -60,7 +76,6 @@ export default function ClosetScreen({ navigation }) {
       if (error) throw error
       setItems(data ?? [])
     } catch (e) {
-      console.log('fetchCloset error:', e.message)
       setItems([])
     } finally {
       setLoading(false)
@@ -81,6 +96,72 @@ export default function ClosetScreen({ navigation }) {
             item.products?.category?.toLowerCase() ===
             activeCategory.toLowerCase()
         )
+
+  const showAccountBanner = user?.email == null && items.length > 0 && !bannerDismissed
+
+  const openSignup = useCallback(() => {
+    setSignupError('')
+    setSignupEmail('')
+    setSignupPassword('')
+    setSignupOpen(true)
+  }, [])
+
+  const openLogin = useCallback(() => {
+    setLoginError('')
+    setLoginEmail('')
+    setLoginPassword('')
+    setLoginOpen(true)
+  }, [])
+
+  const submitSignup = useCallback(async () => {
+    const email = signupEmail.trim()
+    const password = signupPassword
+    setSignupError('')
+
+    if (!email || !password) {
+      setSignupError('Email and password are required.')
+      return
+    }
+
+    setSignupSubmitting(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ email, password })
+      if (error) throw error
+      setSignupOpen(false)
+      Alert.alert('Account created!', 'Your closet is saved.')
+      fetchCloset()
+    } catch (e) {
+      setSignupError(e?.message ?? 'Could not create account.')
+    } finally {
+      setSignupSubmitting(false)
+    }
+  }, [signupEmail, signupPassword])
+
+  const submitLogin = useCallback(async () => {
+    const email = loginEmail.trim()
+    const password = loginPassword
+    setLoginError('')
+
+    if (!email || !password) {
+      setLoginError('Email and password are required.')
+      return
+    }
+
+    setLoginSubmitting(true)
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      if (error) throw error
+      await fetchCloset()
+      setLoginOpen(false)
+    } catch (e) {
+      setLoginError(e?.message ?? 'Could not log in.')
+    } finally {
+      setLoginSubmitting(false)
+    }
+  }, [loginEmail, loginPassword])
 
   const renderItem = useCallback(
     ({ item }) => {
@@ -135,6 +216,40 @@ export default function ClosetScreen({ navigation }) {
     <View style={[styles.screen, { paddingTop: insets.top + 16 }]}>
       <Text style={styles.title}>My Closet</Text>
 
+      {showAccountBanner ? (
+        <View style={styles.banner}>
+          <View style={styles.bannerTopRow}>
+            <Text style={styles.bannerText}>
+              Create an account to save your closet
+            </Text>
+            <TouchableOpacity
+              onPress={() => setBannerDismissed(true)}
+              style={styles.bannerClose}
+              accessibilityLabel="Dismiss banner"
+              activeOpacity={0.85}
+            >
+              <Text style={styles.bannerCloseText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.bannerActions}>
+            <TouchableOpacity
+              onPress={openSignup}
+              style={[styles.bannerBtn, styles.bannerBtnPrimary]}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.bannerBtnPrimaryText}>Sign Up</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={openLogin}
+              style={[styles.bannerBtn, styles.bannerBtnSecondary]}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.bannerBtnSecondaryText}>Log In</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -181,6 +296,122 @@ export default function ClosetScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      <Modal
+        visible={signupOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSignupOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Sign Up</Text>
+              <TouchableOpacity
+                onPress={() => setSignupOpen(false)}
+                style={styles.modalClose}
+                accessibilityLabel="Close sign up"
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              value={signupEmail}
+              onChangeText={setSignupEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              placeholder="Email"
+              placeholderTextColor="#888"
+              style={styles.input}
+            />
+            <TextInput
+              value={signupPassword}
+              onChangeText={setSignupPassword}
+              placeholder="Password"
+              placeholderTextColor="#888"
+              secureTextEntry
+              style={styles.input}
+            />
+            {signupError ? (
+              <Text style={styles.inlineError}>{signupError}</Text>
+            ) : null}
+
+            <TouchableOpacity
+              onPress={submitSignup}
+              disabled={signupSubmitting}
+              style={[
+                styles.submitBtn,
+                signupSubmitting && styles.submitBtnDisabled,
+              ]}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.submitBtnText}>
+                {signupSubmitting ? 'Creating…' : 'Create Account'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={loginOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLoginOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Log In</Text>
+              <TouchableOpacity
+                onPress={() => setLoginOpen(false)}
+                style={styles.modalClose}
+                accessibilityLabel="Close login"
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              value={loginEmail}
+              onChangeText={setLoginEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              placeholder="Email"
+              placeholderTextColor="#888"
+              style={styles.input}
+            />
+            <TextInput
+              value={loginPassword}
+              onChangeText={setLoginPassword}
+              placeholder="Password"
+              placeholderTextColor="#888"
+              secureTextEntry
+              style={styles.input}
+            />
+            {loginError ? (
+              <Text style={styles.inlineError}>{loginError}</Text>
+            ) : null}
+
+            <TouchableOpacity
+              onPress={submitLogin}
+              disabled={loginSubmitting}
+              style={[
+                styles.submitBtn,
+                loginSubmitting && styles.submitBtnDisabled,
+              ]}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.submitBtnText}>
+                {loginSubmitting ? 'Logging in…' : 'Log In'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -203,6 +434,74 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 12,
+  },
+  banner: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 14,
+    padding: 12,
+  },
+  bannerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  bannerText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1a1a1a',
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  bannerClose: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  bannerCloseText: {
+    fontSize: 14,
+    color: '#444',
+    fontWeight: '700',
+    marginTop: -1,
+  },
+  bannerActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  bannerBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerBtnPrimary: {
+    backgroundColor: GREEN,
+    borderColor: GREEN,
+  },
+  bannerBtnPrimaryText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  bannerBtnSecondary: {
+    backgroundColor: '#fff',
+    borderColor: BORDER,
+  },
+  bannerBtnSecondaryText: {
+    color: '#1a1a1a',
+    fontWeight: '700',
+    fontSize: 14,
   },
   tabsRow: {
     flexGrow: 0,
@@ -299,5 +598,81 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: BORDER,
+    padding: 14,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  modalClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  modalCloseText: {
+    fontSize: 14,
+    color: '#444',
+    fontWeight: '700',
+    marginTop: -1,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    fontSize: 15,
+    color: '#1a1a1a',
+    backgroundColor: '#fff',
+    marginTop: 10,
+  },
+  inlineError: {
+    marginTop: 10,
+    color: '#b00020',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  submitBtn: {
+    marginTop: 14,
+    backgroundColor: GREEN,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitBtnDisabled: {
+    opacity: 0.6,
+  },
+  submitBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
   },
 })
