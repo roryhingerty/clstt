@@ -247,8 +247,21 @@ export default function DiscoverScreen({ navigation, route }) {
       <View style={styles.centered}>
         <Text style={styles.emptyTitle}>Nothing to discover yet</Text>
         <Text style={styles.emptySubtitle}>
-          Check back soon for new pieces.
+          You've seen everything — start fresh to rediscover items.
         </Text>
+        <TouchableOpacity
+          style={styles.viewClosetBtn}
+          onPress={async () => {
+            const uid = uidRef.current
+            if (!uid) return
+            setLoading(true)
+            await supabase.from('swipe_events').delete().eq('user_id', uid)
+            await fetchProducts(uid, categoryFilter)
+          }}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.viewClosetText}>Start Fresh</Text>
+        </TouchableOpacity>
       </View>
     )
   }
@@ -266,6 +279,20 @@ export default function DiscoverScreen({ navigation, route }) {
           activeOpacity={0.85}
         >
           <Text style={styles.viewClosetText}>View Closet</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.viewClosetBtn, { marginTop: 12, backgroundColor: 'transparent', borderWidth: 1, borderColor: GREEN }]}
+          onPress={async () => {
+            const uid = uidRef.current
+            if (!uid) return
+            setLoading(true)
+            setAllSwiped(false)
+            await supabase.from('swipe_events').delete().eq('user_id', uid)
+            await fetchProducts(uid, categoryFilter)
+          }}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.viewClosetText, { color: GREEN }]}>Start Fresh</Text>
         </TouchableOpacity>
       </View>
     )
