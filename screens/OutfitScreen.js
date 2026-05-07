@@ -72,6 +72,8 @@ export default function OutfitScreen({ navigation }) {
   const [modalLoading, setModalLoading] = useState(false)
   const [modalFromCloset, setModalFromCloset] = useState(true)
 
+  const [viewOutfit, setViewOutfit] = useState(null)
+
   useFocusEffect(
     useCallback(() => {
       async function init() {
@@ -88,18 +90,31 @@ export default function OutfitScreen({ navigation }) {
   async function fetchSavedOutfits(uid) {
     if (!uid) return
     try {
-      const { data } = await supabase
+      const { data: outfitsData } = await supabase
         .from('outfits')
-        .select(`
-          *,
-          top_product:top_product_id(*),
-          bottom_product:bottom_product_id(*),
-          shoes_product:shoes_product_id(*),
-          accessory_product:accessory_product_id(*)
-        `)
+        .select('*')
         .eq('user_id', uid)
         .order('created_at', { ascending: false })
-      setSavedOutfits(data ?? [])
+
+      const outfits = outfitsData ?? []
+      const ids = [...new Set(
+        outfits.flatMap(o => [o.top_product_id, o.bottom_product_id, o.shoes_product_id, o.accessory_product_id])
+          .filter(Boolean)
+      )]
+
+      let productMap = {}
+      if (ids.length > 0) {
+        const { data: products } = await supabase.from('products').select('*').in('id', ids)
+        productMap = Object.fromEntries((products ?? []).map(p => [p.id, p]))
+      }
+
+      setSavedOutfits(outfits.map(o => ({
+        ...o,
+        top_product: o.top_product_id ? productMap[o.top_product_id] ?? null : null,
+        bottom_product: o.bottom_product_id ? productMap[o.bottom_product_id] ?? null : null,
+        shoes_product: o.shoes_product_id ? productMap[o.shoes_product_id] ?? null : null,
+        accessory_product: o.accessory_product_id ? productMap[o.accessory_product_id] ?? null : null,
+      })))
     } catch {
       setSavedOutfits([])
     }
@@ -221,7 +236,7 @@ export default function OutfitScreen({ navigation }) {
             <TouchableOpacity
               key={outfit.id}
               style={styles.savedCard}
-              onPress={() => loadOutfit(outfit)}
+              onPress={() => setViewOutfit(outfit)}
               activeOpacity={0.85}
             >
               <View style={styles.savedGrid}>
@@ -263,6 +278,57 @@ export default function OutfitScreen({ navigation }) {
       >
         <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save Outfit'}</Text>
       </TouchableOpacity>
+
+      <Modal
+        visible={viewOutfit != null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setViewOutfit(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Saved Outfit</Text>
+              <TouchableOpacity
+                onPress={() => setViewOutfit(null)}
+                style={styles.modalClose}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.viewOutfitGrid}>
+              {['Top', 'Bottom', 'Shoes', 'Accessory'].map(label => {
+                const key = `${label.toLowerCase()}_product`
+                const product = viewOutfit?.[key]
+                return (
+                  <View key={label} style={styles.viewOutfitSlot}>
+                    {product?.image_url ? (
+                      <Image source={{ uri: product.image_url }} style={styles.viewOutfitImg} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.viewOutfitImg, { backgroundColor: '#f0eeea' }]} />
+                    )}
+                    <Text style={styles.viewOutfitLabel}>{label}</Text>
+                    <Text style={styles.viewOutfitName} numberOfLines={2}>
+                      {product?.name ?? '—'}
+                    </Text>
+                  </View>
+                )
+              })}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.exploreBtn}
+              onPress={() => {
+                loadOutfit(viewOutfit)
+                setViewOutfit(null)
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.exploreBtnText}>Load into Builder</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={modalCategory != null}
@@ -447,6 +513,38 @@ const styles = StyleSheet.create({
   },
   modalItemImg: { width: '100%', height: 120 },
   modalItemName: { fontSize: 12, color: '#1a1a1a', fontWeight: '500', padding: 8 },
+  viewOutfitGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 12,
+    gap: 10,
+  },
+  viewOutfitSlot: {
+    width: '47%',
+    backgroundColor: CARD_BG,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: BORDER,
+    overflow: 'hidden',
+  },
+  viewOutfitImg: { width: '100%', height: 120 },
+  viewOutfitLabel: {
+    fontSize: 11,
+    color: GREEN,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+  },
+  viewOutfitName: {
+    fontSize: 12,
+    color: '#1a1a1a',
+    fontWeight: '500',
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+    paddingTop: 2,
+  },
   exploreBtn: {
     marginHorizontal: 16,
     marginTop: 12,
