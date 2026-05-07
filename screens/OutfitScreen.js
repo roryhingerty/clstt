@@ -325,8 +325,9 @@ export default function OutfitScreen({ navigation, route }) {
             <TouchableOpacity
               style={styles.exploreBtn}
               onPress={() => {
+                const category = CATEGORY_MAP[modalCategory]
                 setModalCategory(null)
-                navigation.navigate('Discover')
+                navigation.navigate('Discover', { category })
               }}
               activeOpacity={0.85}
             >

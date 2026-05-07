@@ -73,68 +73,84 @@ function formatPrice(price) {
   return String(price)
 }
 
-export default function DiscoverScreen({ navigation }) {
+const CATEGORY_DISPLAY = {
+  tops: 'Tops',
+  bottoms: 'Bottoms',
+  footwear: 'Shoes',
+  accessories: 'Accessories',
+  outerwear: 'Outerwear',
+}
+
+export default function DiscoverScreen({ navigation, route }) {
   const swiperRef = useRef(null)
   const [userId, setUserId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [products, setProducts] = useState([])
   const [allSwiped, setAllSwiped] = useState(false)
+  const [categoryFilter, setCategoryFilter] = useState(null)
+  const uidRef = useRef(null)
+
+  async function fetchProducts(uid, category) {
+    setLoading(true)
+    setAllSwiped(false)
+    try {
+      let swipedIds = []
+      if (uid) {
+        const { data: swipes } = await supabase
+          .from('swipe_events')
+          .select('product_id')
+          .eq('user_id', uid)
+        swipedIds = (swipes ?? []).map(s => s.product_id)
+      }
+
+      let query = supabase.from('products').select('*')
+      if (category) query = query.eq('category', category)
+      if (swipedIds.length > 0) {
+        query = query.not('id', 'in', `(${swipedIds.join(',')})`)
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+
+      const shuffled = (data ?? []).sort(() => Math.random() - 0.5)
+      setProducts(shuffled)
+    } catch (e) {
+      setProducts([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function fetchProducts(uid) {
-      setLoading(true)
-      try {
-        let swipedIds = []
-        if (uid) {
-          const { data: swipes } = await supabase
-            .from('swipe_events')
-            .select('product_id')
-            .eq('user_id', uid)
-          swipedIds = (swipes ?? []).map(s => s.product_id)
-        }
-
-        let query = supabase.from('products').select('*')
-        if (swipedIds.length > 0) {
-          query = query.not('id', 'in', `(${swipedIds.join(',')})`)
-        }
-
-        const { data, error } = await query
-        if (error) throw error
-
-        const shuffled = (data ?? []).sort(() => Math.random() - 0.5)
-        setProducts(shuffled)
-      } catch (e) {
-        setProducts([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
     async function initAuth() {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-
         if (session?.user?.id) {
+          uidRef.current = session.user.id
           setUserId(session.user.id)
-          fetchProducts(session.user.id)
+          fetchProducts(session.user.id, null)
           return
         }
-
         const { data, error } = await supabase.auth.signInAnonymously()
-
-        if (error) {
-          fetchProducts(null)
-          return
-        }
-
+        if (error) { fetchProducts(null, null); return }
+        uidRef.current = data.user.id
         setUserId(data.user.id)
-        fetchProducts(data.user.id)
+        fetchProducts(data.user.id, null)
       } catch (e) {
-        fetchProducts(null)
+        fetchProducts(null, null)
       }
     }
     initAuth()
   }, [])
+
+  useEffect(() => {
+    if (route.params?.category !== undefined) {
+      const cat = route.params.category ?? null
+      setCategoryFilter(cat)
+      navigation.setParams({ category: undefined })
+      fetchProducts(uidRef.current, cat)
+    }
+  }, [route.params?.category])
 
   const recordSwipe = useCallback(async (product, liked) => {
     const uid = userId
@@ -257,7 +273,21 @@ export default function DiscoverScreen({ navigation }) {
 
   return (
     <View style={styles.screen}>
-      <Text>Clstt</Text>
+      {categoryFilter ? (
+        <View style={styles.filterBar}>
+          <Text style={styles.filterText}>Showing: {CATEGORY_DISPLAY[categoryFilter] ?? categoryFilter}</Text>
+          <TouchableOpacity
+            onPress={() => {
+              setCategoryFilter(null)
+              fetchProducts(uidRef.current, null)
+            }}
+            activeOpacity={0.85}
+            style={styles.filterClear}
+          >
+            <Text style={styles.filterClearText}>✕ Clear</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       <View style={styles.swiperWrap}>
         <Swiper
           ref={swiperRef}
@@ -343,6 +373,31 @@ const styles = StyleSheet.create({
   viewClosetText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  filterText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  filterClear: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: '#fff',
+  },
+  filterClearText: {
+    fontSize: 13,
+    color: '#555',
     fontWeight: '600',
   },
   card: {
