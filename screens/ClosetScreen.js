@@ -252,8 +252,8 @@ export default function ClosetScreen({ navigation }) {
     )
   }
 
-  return (
-    <View style={[styles.screen, { paddingTop: insets.top + 16 }]}>
+  const listHeader = (
+    <View style={{ paddingTop: insets.top + 16 }}>
       <Text style={styles.title}>My Closet</Text>
 
       {showAccountBanner ? (
@@ -355,29 +355,30 @@ export default function ClosetScreen({ navigation }) {
           </TouchableOpacity>
         ))}
       </ScrollView>
+    </View>
+  )
 
-      {filtered.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyTitle}>
-            {activeCategory === 'All'
-              ? 'Your closet is empty'
-              : `No ${activeCategory} yet`}
-          </Text>
-          <Text style={styles.emptySubtitle}>
-            Swipe right on items you love
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filtered}
-          renderItem={renderItem}
-          keyExtractor={(item) => String(item.id)}
-          numColumns={2}
-          columnWrapperStyle={styles.row}
-          contentContainerStyle={styles.grid}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+  return (
+    <View style={styles.screen}>
+      <FlatList
+        data={filtered}
+        renderItem={renderItem}
+        keyExtractor={(item) => String(item.id)}
+        numColumns={2}
+        key={activeCategory}
+        columnWrapperStyle={styles.row}
+        contentContainerStyle={styles.grid}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>
+              {activeCategory === 'All' ? 'Your closet is empty' : `No ${activeCategory} yet`}
+            </Text>
+            <Text style={styles.emptySubtitle}>Swipe right on items you love</Text>
+          </View>
+        }
+      />
 
       <Modal
         visible={selectedOutfit != null}
@@ -555,11 +556,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BG,
   },
-  centered: {
-    flex: 1,
+  emptyContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: BG,
+    paddingTop: 64,
+    paddingHorizontal: 32,
   },
   title: {
     fontSize: 24,
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 8,
   },
-  outfitsScroll: { height: 164, marginBottom: 12 },
+  outfitsScroll: { marginBottom: 12 },
   outfitsRow: { paddingHorizontal: 16, gap: 10 },
   outfitCard: {
     width: 150,
