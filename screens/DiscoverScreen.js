@@ -81,12 +81,28 @@ export default function DiscoverScreen({ navigation }) {
   const [allSwiped, setAllSwiped] = useState(false)
 
   useEffect(() => {
-    async function fetchProducts() {
+    async function fetchProducts(uid) {
       setLoading(true)
       try {
-        const { data, error } = await supabase.from('products').select('*')
+        let swipedIds = []
+        if (uid) {
+          const { data: swipes } = await supabase
+            .from('swipe_events')
+            .select('product_id')
+            .eq('user_id', uid)
+          swipedIds = (swipes ?? []).map(s => s.product_id)
+        }
+
+        let query = supabase.from('products').select('*')
+        if (swipedIds.length > 0) {
+          query = query.not('id', 'in', `(${swipedIds.join(',')})`)
+        }
+
+        const { data, error } = await query
         if (error) throw error
-        setProducts(data ?? [])
+
+        const shuffled = (data ?? []).sort(() => Math.random() - 0.5)
+        setProducts(shuffled)
       } catch (e) {
         setProducts([])
       } finally {
@@ -100,21 +116,21 @@ export default function DiscoverScreen({ navigation }) {
 
         if (session?.user?.id) {
           setUserId(session.user.id)
-          fetchProducts()
+          fetchProducts(session.user.id)
           return
         }
 
         const { data, error } = await supabase.auth.signInAnonymously()
 
-if (error) {
-          fetchProducts()
+        if (error) {
+          fetchProducts(null)
           return
         }
 
         setUserId(data.user.id)
-        fetchProducts()
+        fetchProducts(data.user.id)
       } catch (e) {
-        fetchProducts()
+        fetchProducts(null)
       }
     }
     initAuth()
