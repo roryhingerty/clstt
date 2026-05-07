@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -60,7 +60,7 @@ function Mannequin() {
   )
 }
 
-export default function OutfitScreen({ navigation }) {
+export default function OutfitScreen({ navigation, route }) {
   const insets = useSafeAreaInsets()
   const [userId, setUserId] = useState(null)
   const [slots, setSlots] = useState({ Top: null, Bottom: null, Shoes: null, Accessory: null })
@@ -73,6 +73,13 @@ export default function OutfitScreen({ navigation }) {
   const [modalFromCloset, setModalFromCloset] = useState(true)
 
   const [viewOutfit, setViewOutfit] = useState(null)
+
+  useEffect(() => {
+    if (route.params?.outfit) {
+      loadOutfit(route.params.outfit)
+      navigation.setParams({ outfit: undefined })
+    }
+  }, [route.params?.outfit])
 
   useFocusEffect(
     useCallback(() => {
