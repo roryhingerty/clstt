@@ -20,6 +20,13 @@ const GREEN = '#1D9E75'
 const BG = '#f8f7f4'
 const BORDER = '#e0ddd6'
 
+const SLOT_KEYS = [
+  { key: 'top_product', label: 'Top' },
+  { key: 'bottom_product', label: 'Bottom' },
+  { key: 'shoes_product', label: 'Shoes' },
+  { key: 'accessory_product', label: 'Accessory' },
+]
+
 const CATEGORIES = [
   'All',
   'Tops',
@@ -45,6 +52,8 @@ export default function ClosetScreen({ navigation }) {
   const [activeCategory, setActiveCategory] = useState('All')
   const [user, setUser] = useState(null)
   const [bannerDismissed, setBannerDismissed] = useState(false)
+  const [outfits, setOutfits] = useState([])
+  const [selectedOutfit, setSelectedOutfit] = useState(null)
 
   const [signupOpen, setSignupOpen] = useState(false)
   const [signupEmail, setSignupEmail] = useState('')
@@ -69,6 +78,7 @@ export default function ClosetScreen({ navigation }) {
         return
       }
       setUser(session.user)
+      fetchOutfits(session.user.id)
       const { data, error } = await supabase
         .from('closet_items')
         .select('*, products(*)')
@@ -79,6 +89,36 @@ export default function ClosetScreen({ navigation }) {
       setItems([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function fetchOutfits(uid) {
+    try {
+      const { data: outfitsData } = await supabase
+        .from('outfits')
+        .select('*')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: false })
+
+      const list = outfitsData ?? []
+      const ids = [...new Set(
+        list.flatMap(o => [o.top_product_id, o.bottom_product_id, o.shoes_product_id, o.accessory_product_id])
+          .filter(Boolean)
+      )]
+      let productMap = {}
+      if (ids.length > 0) {
+        const { data: products } = await supabase.from('products').select('*').in('id', ids)
+        productMap = Object.fromEntries((products ?? []).map(p => [p.id, p]))
+      }
+      setOutfits(list.map(o => ({
+        ...o,
+        top_product: o.top_product_id ? productMap[o.top_product_id] ?? null : null,
+        bottom_product: o.bottom_product_id ? productMap[o.bottom_product_id] ?? null : null,
+        shoes_product: o.shoes_product_id ? productMap[o.shoes_product_id] ?? null : null,
+        accessory_product: o.accessory_product_id ? productMap[o.accessory_product_id] ?? null : null,
+      })))
+    } catch {
+      setOutfits([])
     }
   }
 
@@ -250,6 +290,48 @@ export default function ClosetScreen({ navigation }) {
         </View>
       ) : null}
 
+      {outfits.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>My Outfits</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.outfitsRow}
+            style={styles.outfitsScroll}
+          >
+            {outfits.map(outfit => (
+              <TouchableOpacity
+                key={outfit.id}
+                style={styles.outfitCard}
+                onPress={() => setSelectedOutfit(outfit)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.outfitCanvas}>
+                  <View style={styles.outfitCanvasRow}>
+                    {[outfit.top_product, outfit.bottom_product].map((p, i) => (
+                      <View key={i} style={styles.outfitThumb}>
+                        {p?.image_url
+                          ? <Image source={{ uri: p.image_url }} style={styles.outfitThumbImg} resizeMode="cover" />
+                          : <View style={[styles.outfitThumbImg, { backgroundColor: '#f0eeea' }]} />}
+                      </View>
+                    ))}
+                  </View>
+                  <View style={styles.outfitCanvasRow}>
+                    {[outfit.shoes_product, outfit.accessory_product].map((p, i) => (
+                      <View key={i} style={styles.outfitThumb}>
+                        {p?.image_url
+                          ? <Image source={{ uri: p.image_url }} style={styles.outfitThumbImg} resizeMode="cover" />
+                          : <View style={[styles.outfitThumbImg, { backgroundColor: '#f0eeea' }]} />}
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </>
+      )}
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -296,6 +378,58 @@ export default function ClosetScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      <Modal
+        visible={selectedOutfit != null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedOutfit(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Outfit</Text>
+              <TouchableOpacity
+                onPress={() => setSelectedOutfit(null)}
+                style={styles.modalClose}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.outfitDetailContent} showsVerticalScrollIndicator={false}>
+              {SLOT_KEYS.map(({ key, label }) => {
+                const product = selectedOutfit?.[key]
+                if (!product) return null
+                return (
+                  <View key={key} style={styles.outfitDetailItem}>
+                    {product.image_url
+                      ? <Image source={{ uri: product.image_url }} style={styles.outfitDetailImg} resizeMode="cover" />
+                      : <View style={[styles.outfitDetailImg, { backgroundColor: '#f0eeea' }]} />}
+                    <View style={styles.outfitDetailMeta}>
+                      <Text style={styles.outfitDetailSlotLabel}>{label}</Text>
+                      {product.brand ? <Text style={styles.outfitDetailBrand}>{product.brand}</Text> : null}
+                      <Text style={styles.outfitDetailName} numberOfLines={2}>{product.name}</Text>
+                      <Text style={styles.outfitDetailPrice}>{formatPrice(product.price)}</Text>
+                    </View>
+                  </View>
+                )
+              })}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.loadBtn}
+              onPress={() => {
+                const outfit = selectedOutfit
+                setSelectedOutfit(null)
+                navigation.navigate('Outfit', { outfit })
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.loadBtnText}>Load into Builder</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={signupOpen}
@@ -503,6 +637,60 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  outfitsScroll: { flexGrow: 0, marginBottom: 12 },
+  outfitsRow: { paddingHorizontal: 16, gap: 10 },
+  outfitCard: {
+    width: 96,
+    height: 96,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
+  outfitCanvas: { flex: 1, padding: 4, gap: 3 },
+  outfitCanvasRow: { flex: 1, flexDirection: 'row', gap: 3 },
+  outfitThumb: { flex: 1, borderRadius: 6, overflow: 'hidden' },
+  outfitThumbImg: { width: '100%', height: '100%' },
+  outfitDetailContent: { paddingHorizontal: 16, paddingTop: 12, gap: 10 },
+  outfitDetailItem: {
+    flexDirection: 'row',
+    backgroundColor: BG,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BORDER,
+    overflow: 'hidden',
+  },
+  outfitDetailImg: { width: 90, height: 110 },
+  outfitDetailMeta: { flex: 1, padding: 10, justifyContent: 'center' },
+  outfitDetailSlotLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: GREEN,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 3,
+  },
+  outfitDetailBrand: { fontSize: 12, fontWeight: '600', color: '#555', marginBottom: 2 },
+  outfitDetailName: { fontSize: 13, fontWeight: '600', color: '#1a1a1a', marginBottom: 3 },
+  outfitDetailPrice: { fontSize: 12, fontWeight: '500', color: '#555' },
+  loadBtn: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    backgroundColor: GREEN,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  loadBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   tabsRow: {
     flexGrow: 0,
   },
