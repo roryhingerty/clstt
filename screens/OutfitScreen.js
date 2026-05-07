@@ -64,7 +64,6 @@ export default function OutfitScreen({ navigation, route }) {
   const insets = useSafeAreaInsets()
   const [userId, setUserId] = useState(null)
   const [slots, setSlots] = useState({ Top: null, Bottom: null, Shoes: null, Accessory: null })
-  const [savedOutfits, setSavedOutfits] = useState([])
   const [saving, setSaving] = useState(false)
 
   const [modalCategory, setModalCategory] = useState(null)
@@ -87,45 +86,11 @@ export default function OutfitScreen({ navigation, route }) {
         const { data: { session } } = await supabase.auth.getSession()
         if (session?.user?.id) {
           setUserId(session.user.id)
-          fetchSavedOutfits(session.user.id)
         }
       }
       init()
     }, [])
   )
-
-  async function fetchSavedOutfits(uid) {
-    if (!uid) return
-    try {
-      const { data: outfitsData } = await supabase
-        .from('outfits')
-        .select('*')
-        .eq('user_id', uid)
-        .order('created_at', { ascending: false })
-
-      const outfits = outfitsData ?? []
-      const ids = [...new Set(
-        outfits.flatMap(o => [o.top_product_id, o.bottom_product_id, o.shoes_product_id, o.accessory_product_id])
-          .filter(Boolean)
-      )]
-
-      let productMap = {}
-      if (ids.length > 0) {
-        const { data: products } = await supabase.from('products').select('*').in('id', ids)
-        productMap = Object.fromEntries((products ?? []).map(p => [p.id, p]))
-      }
-
-      setSavedOutfits(outfits.map(o => ({
-        ...o,
-        top_product: o.top_product_id ? productMap[o.top_product_id] ?? null : null,
-        bottom_product: o.bottom_product_id ? productMap[o.bottom_product_id] ?? null : null,
-        shoes_product: o.shoes_product_id ? productMap[o.shoes_product_id] ?? null : null,
-        accessory_product: o.accessory_product_id ? productMap[o.accessory_product_id] ?? null : null,
-      })))
-    } catch {
-      setSavedOutfits([])
-    }
-  }
 
   async function openSlotPicker(category) {
     setModalCategory(category)
@@ -181,7 +146,6 @@ export default function OutfitScreen({ navigation, route }) {
       })
       if (error) throw error
       Alert.alert('Outfit saved!')
-      fetchSavedOutfits(userId)
     } catch (e) {
       Alert.alert('Error', e?.message ?? 'Could not save outfit.')
     } finally {
@@ -232,36 +196,6 @@ export default function OutfitScreen({ navigation, route }) {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
       showsVerticalScrollIndicator={false}
     >
-      {savedOutfits.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.savedRow}
-          style={styles.savedScroll}
-        >
-          {savedOutfits.map(outfit => (
-            <TouchableOpacity
-              key={outfit.id}
-              style={styles.savedCard}
-              onPress={() => setViewOutfit(outfit)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.savedGrid}>
-                {[outfit.top_product, outfit.bottom_product, outfit.shoes_product, outfit.accessory_product].map((p, i) => (
-                  <View key={i} style={styles.savedThumb}>
-                    {p?.image_url ? (
-                      <Image source={{ uri: p.image_url }} style={styles.savedThumbImg} resizeMode="cover" />
-                    ) : (
-                      <View style={[styles.savedThumbImg, { backgroundColor: '#f0eeea' }]} />
-                    )}
-                  </View>
-                ))}
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      )}
-
       <Text style={styles.title}>My Outfit</Text>
 
       <View style={styles.mannequinWrap}>
@@ -408,21 +342,6 @@ export default function OutfitScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: BG },
   content: { paddingBottom: 40 },
-
-  savedScroll: { flexGrow: 0, marginBottom: 12 },
-  savedRow: { paddingHorizontal: 16, gap: 10 },
-  savedCard: {
-    width: 80,
-    height: 80,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: CARD_BG,
-    overflow: 'hidden',
-  },
-  savedGrid: { flex: 1, flexDirection: 'row', flexWrap: 'wrap' },
-  savedThumb: { width: '50%', height: '50%' },
-  savedThumbImg: { width: '100%', height: '100%' },
 
   title: {
     fontSize: 24,
