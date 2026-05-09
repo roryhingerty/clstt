@@ -122,6 +122,24 @@ export default function ClosetScreen({ navigation }) {
     }
   }
 
+  const removeItem = useCallback((itemId) => {
+    Alert.alert(
+      'Remove Item',
+      'Remove this item from your closet?',
+      [
+        {
+          text: 'Remove from Closet',
+          style: 'destructive',
+          onPress: async () => {
+            await supabase.from('closet_items').delete().eq('id', itemId)
+            setItems(prev => prev.filter(i => i.id !== itemId))
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    )
+  }, [])
+
   useFocusEffect(
     useCallback(() => {
       fetchCloset()
@@ -212,6 +230,7 @@ export default function ClosetScreen({ navigation }) {
         <TouchableOpacity
           style={styles.card}
           onPress={() => navigation.navigate('ItemDetail', { product })}
+          onLongPress={() => removeItem(item.id)}
           activeOpacity={0.85}
         >
           <View style={styles.imageWrap}>
@@ -227,6 +246,7 @@ export default function ClosetScreen({ navigation }) {
               </View>
             )}
           </View>
+          <Text style={styles.holdHint}>hold to remove</Text>
           <View style={styles.cardMeta}>
             {product.brand ? (
               <Text style={styles.brand} numberOfLines={1}>
@@ -241,7 +261,7 @@ export default function ClosetScreen({ navigation }) {
         </TouchableOpacity>
       )
     },
-    [navigation]
+    [navigation, removeItem]
   )
 
   if (loading) {
@@ -752,6 +772,12 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: '#888',
     fontSize: 13,
+  },
+  holdHint: {
+    fontSize: 10,
+    color: '#aaa',
+    textAlign: 'center',
+    paddingVertical: 3,
   },
   cardMeta: {
     padding: 10,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -81,6 +82,14 @@ const CATEGORY_DISPLAY = {
   outerwear: 'Outerwear',
 }
 
+const PILLS = [
+  { label: 'All', value: null },
+  { label: 'Tops', value: 'tops' },
+  { label: 'Bottoms', value: 'bottoms' },
+  { label: 'Outerwear', value: 'outerwear' },
+  { label: 'Footwear', value: 'footwear' },
+]
+
 export default function DiscoverScreen({ navigation, route }) {
   const swiperRef = useRef(null)
   const [userId, setUserId] = useState(null)
@@ -88,6 +97,7 @@ export default function DiscoverScreen({ navigation, route }) {
   const [products, setProducts] = useState([])
   const [allSwiped, setAllSwiped] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState(null)
+  const [swiperKey, setSwiperKey] = useState(0)
   const uidRef = useRef(null)
 
   async function fetchProducts(uid, category) {
@@ -114,6 +124,7 @@ export default function DiscoverScreen({ navigation, route }) {
 
       const shuffled = (data ?? []).sort(() => Math.random() - 0.5)
       setProducts(shuffled)
+      setSwiperKey(k => k + 1)
     } catch (e) {
       setProducts([])
     } finally {
@@ -151,6 +162,22 @@ export default function DiscoverScreen({ navigation, route }) {
       fetchProducts(uidRef.current, cat)
     }
   }, [route.params?.category])
+
+  const handleUndo = useCallback(async () => {
+    swiperRef.current?.swipeBack()
+    const uid = uidRef.current
+    if (!uid) return
+    const { data } = await supabase
+      .from('swipe_events')
+      .select('id')
+      .eq('user_id', uid)
+      .order('swiped_at', { ascending: false })
+      .limit(1)
+      .single()
+    if (data?.id) {
+      await supabase.from('swipe_events').delete().eq('id', data.id)
+    }
+  }, [])
 
   const recordSwipe = useCallback(async (product, liked) => {
     const uid = userId
@@ -300,23 +327,33 @@ export default function DiscoverScreen({ navigation, route }) {
 
   return (
     <View style={styles.screen}>
-      {categoryFilter ? (
-        <View style={styles.filterBar}>
-          <Text style={styles.filterText}>Showing: {CATEGORY_DISPLAY[categoryFilter] ?? categoryFilter}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.pillsRow}
+        style={styles.pillsScroll}
+      >
+        {PILLS.map((pill) => (
           <TouchableOpacity
+            key={pill.label}
+            style={[styles.pill, categoryFilter === pill.value && styles.activePill]}
             onPress={() => {
-              setCategoryFilter(null)
-              fetchProducts(uidRef.current, null)
+              if (categoryFilter !== pill.value) {
+                setCategoryFilter(pill.value)
+                fetchProducts(uidRef.current, pill.value)
+              }
             }}
             activeOpacity={0.85}
-            style={styles.filterClear}
           >
-            <Text style={styles.filterClearText}>✕ Clear</Text>
+            <Text style={[styles.pillText, categoryFilter === pill.value && styles.activePillText]}>
+              {pill.label}
+            </Text>
           </TouchableOpacity>
-        </View>
-      ) : null}
+        ))}
+      </ScrollView>
       <View style={styles.swiperWrap}>
         <Swiper
+          key={swiperKey}
           ref={swiperRef}
           cards={products}
           renderCard={renderCard}
@@ -342,6 +379,14 @@ export default function DiscoverScreen({ navigation, route }) {
       </View>
 
       <View style={styles.actions}>
+        <TouchableOpacity
+          style={styles.undoBtn}
+          onPress={handleUndo}
+          activeOpacity={0.85}
+          accessibilityLabel="Undo"
+        >
+          <Text style={styles.undoIcon}>↩</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.circleBtn, styles.nopeBtn]}
           onPress={() => swiperRef.current?.swipeLeft()}
@@ -402,30 +447,47 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  filterBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
+  pillsScroll: {
+    flexGrow: 0,
+  },
+  pillsRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  pill: {
+    paddingHorizontal: 16,
     paddingVertical: 8,
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1a1a1a',
-  },
-  filterClear: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: BORDER,
     backgroundColor: '#fff',
   },
-  filterClearText: {
-    fontSize: 13,
+  activePill: {
+    backgroundColor: GREEN,
+    borderColor: GREEN,
+  },
+  pillText: {
+    fontSize: 14,
     color: '#555',
-    fontWeight: '600',
+    fontWeight: '500',
+  },
+  activePillText: {
+    color: '#fff',
+  },
+  undoBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: '#fff',
+  },
+  undoIcon: {
+    fontSize: 20,
+    color: '#555',
   },
   card: {
     flex: 1,
