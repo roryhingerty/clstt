@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native'
 import Swiper from 'react-native-deck-swiper'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../lib/supabase'
 
 const GREEN = '#1D9E75'
@@ -91,6 +92,7 @@ const PILLS = [
 ]
 
 export default function DiscoverScreen({ navigation, route }) {
+  const insets = useSafeAreaInsets()
   const swiperRef = useRef(null)
   const [userId, setUserId] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -326,7 +328,7 @@ export default function DiscoverScreen({ navigation, route }) {
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top + 12 }]}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -365,7 +367,7 @@ export default function DiscoverScreen({ navigation, route }) {
           stackSize={3}
           stackSeparation={14}
           stackScale={10}
-          marginBottom={120}
+          marginBottom={20}
           marginTop={16}
           cardVerticalMargin={16}
           cardHorizontalMargin={20}
@@ -411,6 +413,7 @@ export default function DiscoverScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    flexDirection: 'column',
     backgroundColor: BG,
   },
   swiperWrap: {
@@ -558,9 +561,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 48,
-    paddingBottom: 28,
-    paddingTop: 8,
+    height: 100,
+    flexShrink: 0,
     backgroundColor: BG,
+    paddingBottom: 20,
   },
   circleBtn: {
     width: 64,
