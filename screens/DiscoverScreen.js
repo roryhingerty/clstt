@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native'
 import Swiper from 'react-native-deck-swiper'
@@ -91,8 +92,12 @@ const PILLS = [
   { label: 'Footwear', value: 'footwear' },
 ]
 
+const PILL_ROW_H = 58  // pillsRow paddingVertical:10*2 + pill ~38px
+const ACTIONS_H = 100
+
 export default function DiscoverScreen({ navigation, route }) {
   const insets = useSafeAreaInsets()
+  const { height: windowHeight } = useWindowDimensions()
   const swiperRef = useRef(null)
   const [userId, setUserId] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -353,7 +358,7 @@ export default function DiscoverScreen({ navigation, route }) {
           </TouchableOpacity>
         ))}
       </ScrollView>
-      <View style={styles.swiperWrap}>
+      <View style={[styles.swiperWrap, { height: windowHeight - (insets.top + 12) - PILL_ROW_H - ACTIONS_H }]}>
         <Swiper
           key={swiperKey}
           ref={swiperRef}
@@ -367,8 +372,8 @@ export default function DiscoverScreen({ navigation, route }) {
           stackSize={3}
           stackSeparation={14}
           stackScale={10}
-          marginBottom={20}
-          marginTop={16}
+          marginBottom={8}
+          marginTop={8}
           cardVerticalMargin={16}
           cardHorizontalMargin={20}
           animateOverlayLabelsOpacity
@@ -417,7 +422,7 @@ const styles = StyleSheet.create({
     backgroundColor: BG,
   },
   swiperWrap: {
-    flex: 1,
+    overflow: 'hidden',
   },
   centered: {
     flex: 1,
